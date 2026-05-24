@@ -1,0 +1,199 @@
+version: '3.8'
+
+services:
+  # Frontend - React + TypeScript
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mpds-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_WS_URL=http://localhost:6001
+      - REACT_APP_AI_URL=http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - mpds-network
+
+  # Backend - PHP Laravel
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mpds-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/var/www/html
+      - ./storage:/var/www/html/storage/app
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_DATABASE=mpds
+      - DB_USERNAME=mpds_user
+      - DB_PASSWORD=mpds_secret
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_SERVICE_URL=http://ai-service:5000
+      - BROADCAST_DRIVER=pusher
+      - PUSHER_APP_ID=mpds-app
+      - PUSHER_APP_KEY=mpds-key
+      - PUSHER_APP_SECRET=mpds-secret
+    depends_on:
+      - database
+      - redis
+    networks:
+      - mpds-network
+
+  # AI Face Recognition Service
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: mpds-ai-service
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./ai-service:/app
+      - ./storage/face_data:/app/face_data
+    environment:
+      - DATABASE_URL=mysql://mpds_user:mpds_secret@database:3306/mpds
+      - REDIS_URL=redis://redis:6379
+      - MODEL_PATH=/app/models
+      - FACE_DATA_PATH=/app/face_data
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    depends_on:
+      - database
+      - redis
+    networks:
+      - mpds-network
+
+  # MySQL Database
+  database:
+    image: mysql:8.0
+    container_name: mpds-database
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_secret
+      - MYSQL_DATABASE=mpds
+      - MYSQL_USER=mpds_user
+      - MYSQL_PASSWORD=mpds_secret
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init:/docker-entrypoint-initdb.d
+    networks:
+      - mpds-network
+
+  # Redis for Queues and Caching
+  redis:
+    image: redis:7-alpine
+    container_name: mpds-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - mpds-network
+
+  # Laravel Queue Worker
+  queue-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mpds-queue-worker
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_DATABASE=mpds
+      - DB_USERNAME=mpds_user
+      - DB_PASSWORD=mpds_secret
+      - REDIS_HOST=redis
+    depends_on:
+      - backend
+      - database
+      - redis
+    networks:
+      - mpds-network
+
+  # WebSocket Server (Laravel Reverb)
+  websocket:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mpds-websocket
+    command: php artisan reverb:start --debug
+    ports:
+      - "6001:6001"
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=database
+      - DB_PORT=3306
+      - DB_DATABASE=mpds
+      - DB_USERNAME=mpds_user
+      - DB_PASSWORD=mpds_secret
+    depends_on:
+      - backend
+      - database
+    networks:
+      - mpds-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: mpds-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./backend:/var/www/html
+    depends_on:
+      - frontend
+      - backend
+      - ai-service
+    networks:
+      - mpds-network
+
+  # phpMyAdmin (Development)
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: mpds-phpmyadmin
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=database
+      - PMA_PORT=3306
+      - MYSQL_ROOT_PASSWORD=root_secret
+    depends_on:
+      - database
+    networks:
+      - mpds-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  mpds-network:
+    driver: bridge

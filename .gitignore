@@ -1,0 +1,97 @@
+# ─────────────────────────────────────────────
+# Missing Person Detection System - .gitignore
+# ─────────────────────────────────────────────
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+
+# ── IDE ──
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# ── Docker volumes ──
+mysql_data/
+redis_data/
+storage/
+
+# ── Frontend (React) ──
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.vite/
+
+# ── Backend (Laravel) ──
+backend/vendor/
+backend/.env
+backend/.env.backup
+backend/.env.production
+backend/.phpunit.result.cache
+backend/.phpunit.cache/
+backend/Homestead.json
+backend/Homestead.yaml
+backend/auth.json
+backend/npm-debug.log*
+backend/yarn-error.log*
+backend/.php-cs-fixer.cache
+backend/storage/*.key
+backend/public/hot
+backend/public/storage
+backend/public/build
+
+# ── AI Service (Python) ──
+ai-service/__pycache__/
+ai-service/**/__pycache__/
+ai-service/*.pyc
+ai-service/*.pyo
+ai-service/.env
+ai-service/venv/
+ai-service/.venv/
+ai-service/env/
+ai-service/models/
+ai-service/face_data/
+ai-service/*.index
+ai-service/.pytest_cache/
+ai-service/htmlcov/
+ai-service/.coverage
+ai-service/coverage.xml
+
+# ── Logs ──
+*.log
+logs/
+
+# ── Uploads & temp files ──
+uploads/
+tmp/
+temp/
+*.tmp
+
+# ── Secrets ──
+.env
+.env.local
+*.pem
+*.key
+credentials.json
+service-account.json
+.openclaude
+# ── Node (general) ──
+node_modules/
+package-lock.json
+yarn.lock
+
+# ── Composer ──
+composer.lock
+
+# ── Testing ──
+coverage/
+.phpunit.cache/
